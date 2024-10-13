@@ -1,9 +1,9 @@
 use sqlx::FromRow;
 #[derive(Debug, FromRow)]
 pub struct Label {
-    id: i64,
-    course: i64,
-    name: String,
-    added: i64,
-    timemodified: i64
+    pub id: i64,
+    pub course: i64,
+    pub name: String,
+    pub added: i64,
+    pub timemodified: i64
 }

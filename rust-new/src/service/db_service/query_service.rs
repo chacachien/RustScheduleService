@@ -1,9 +1,11 @@
-
+use std::env;
+use std::sync::Arc;
 use sqlx::{Error, PgPool, Row};
-use sqlx::postgres::PgRow;
 use crate::model::Assignment_Model::Assignment;
+use crate::model::Course::Course;
 use crate::model::Label_Model::Label;
 use crate::model::Quiz_Model::Quiz;
+use crate::model::User::User;
 use crate::model::User_Course_Model::UserCourse;
 
 pub struct DatabaseService {
@@ -11,8 +13,9 @@ pub struct DatabaseService {
 }
 
 impl DatabaseService {
-    pub async fn new(database_url: &str) -> Result<Self, Error >{
-        let pool = PgPool::connect(database_url).await?;
+    pub async fn new() -> Result<Self, Error >{
+        let db_url = env::var("DB_URL").expect("DB_URL must be set");
+        let pool = PgPool::connect(&db_url).await?;
         Ok(DatabaseService{pool})
     }
     pub async fn get_user_course(&self) -> Result<Vec<UserCourse>, Error>{
@@ -64,10 +67,39 @@ impl DatabaseService {
                     WHERE cm.module = 14
                     AND l.course = $2
                     AND (cmc.userid IS NULL OR cmc.completionstate != 1);
-
             "#
         ).bind(user_course.user_id).bind(user_course.course_id)
         .fetch_all(&self.pool).await?;
         Ok(rows)
     }
+
+    pub async fn get_username(&self, user_id: i64)->Result<User, Error>{
+        let row = sqlx::query_as::<_, User>(
+            r#"
+          SELECT id, firstname, lastname FROM mdl_user where id = $1
+            "#
+        ).bind(user_id).fetch_one(&self.pool).await?;
+        Ok(row)
+    }
+
+    pub async fn get_coursename(&self, course_id: i64)->Result<Course, Error>{
+        let row = sqlx::query_as::<_, Course>(
+            r#"
+          SELECT fullname FROM mdl_course where id = $1
+            "#
+        ).bind(course_id).fetch_one(&self.pool).await?;
+        Ok(row)
+    }
+
+    pub async fn get_last_update(&self) -> Result<i64, Error>{
+        let row = sqlx::query_scalar(
+            r#"
+                SELECT last_update from service_checker
+            "#
+        ).fetch_optional(&self.pool).await?;
+        let result  = row.unwrap();
+        Ok(result)
+    }
+
+
 }
