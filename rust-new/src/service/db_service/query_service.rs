@@ -2,9 +2,11 @@ use std::env;
 use std::sync::Arc;
 use sqlx::{Error, PgPool, Row};
 use crate::model::Assignment_Model::Assignment;
+use crate::model::Completion::Completion;
 use crate::model::Course::Course;
 use crate::model::Label_Model::{Label, LabelDocument};
 use crate::model::Quiz_Model::Quiz;
+use crate::model::Settime::Settime;
 use crate::model::User::User;
 use crate::model::User_Course_Model::UserCourse;
 
@@ -44,6 +46,7 @@ impl DatabaseService {
         .fetch_all(&self.pool).await?;
         Ok(rows)
     }
+
     pub async fn get_assign(&self, user_course: UserCourse) -> Result<Vec<Assignment>, Error>{
         let rows = sqlx::query_as::<_, Assignment>(
             r#"
@@ -110,4 +113,55 @@ impl DatabaseService {
         Ok(rows)
     }
 
+    pub async fn get_reminder_time(&self) -> Result<Settime, Error>{
+        let row = sqlx::query_as::<_, Settime>(
+            r#"
+                SELECT * from service_setting
+                WHERE name = 'time_reminder'
+            "#
+        ).fetch_one(&self.pool).await?;
+        Ok(row)
+    }
+
+    pub async fn get_completion(&self, user_id: i64) -> Result<Vec<Completion>, Error>{
+        let rows = sqlx::query_as::<_, Completion>(
+            r#"
+                    SELECT
+                    	c.fullname,
+                        mcm.course AS course_id,
+                        mc.name AS module_name,
+                        COUNT(cmc.id) AS completed_modules,
+                        COUNT(mcm.id) AS total_modules,
+                        COUNT(cmc.id) / COUNT(mcm.id) * 100 AS completion_percentage
+                    FROM mdl_user u
+                    JOIN mdl_user_enrolments ue ON u.id = ue.userid
+                    JOIN mdl_enrol e ON ue.enrolid = e.id
+                    JOIN mdl_course c ON e.courseid = c.id
+					JOIN mdl_course_modules mcm on mcm.course = c.id
+                    join    mdl_modules mc ON mcm.module = mc.id
+                    LEFT JOIN
+                        mdl_course_modules_completion cmc ON mcm.id = cmc.coursemoduleid
+                    WHERE (mc.name = 'quiz' or mc.name = 'assign' or mc.name = 'label') and u.id = $1
+                    GROUP BY
+                        c.fullname, mcm.course, mc.name;
+            "#
+        ).bind(user_id).fetch_all(&self.pool).await?;
+        Ok(rows)
+    }
+
+    pub async fn get_user_daily_check(&self) -> Result<Vec<User>, Error>{
+        let rows = sqlx::query_as::<_, User>(
+            r#"
+            SELECT DISTINCT u.id as id, u.firstname, u.lastname
+
+                    FROM mdl_user u
+                    JOIN mdl_user_enrolments ue ON u.id = ue.userid
+                    JOIN mdl_enrol e ON ue.enrolid = e.id
+                    JOIN mdl_course c ON e.courseid = c.id
+                    join user_reminder ur on u.id = ur.user_id
+                    where ur.reminder
+            "#
+        ).fetch_all(&self.pool).await?;
+        Ok(rows)
+    }
 }

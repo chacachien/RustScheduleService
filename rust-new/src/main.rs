@@ -5,7 +5,7 @@ mod task;
 
 use std::env;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use chrono::TimeZone;
 use serde_json::Value;
 use lambda_runtime::{run, service_fn, tracing, Error, LambdaEvent};
@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use sqlx::{PgPool, Pool};
 use crate::service::db_service::query_service::DatabaseService;
+use crate::task::admin_task::Admin_task;
 use crate::task::real_time_task::Realtime_task;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -23,18 +24,21 @@ struct EventPayload{
 }
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-
-
     let key = "DB_URL";
     unsafe {
         env::set_var(key, "postgresql://postgres:1307x2Npk@moodle.cd2wy4iagdv9.ap-southeast-1.rds.amazonaws.com:5432/moodle");
     }
     tracing::init_default_subscriber();
 
-    run(service_fn(function_handler)).await
+    run(service_fn(function_handler)).await?;
+
+
+    Ok(())
 }
 async fn function_handler(event: LambdaEvent<Value>) -> Result<&'static str, Error> {
     // Extract some useful information from the request
+    let start_time = Instant::now();
+
     let payload:EventPayload = serde_json::from_value(event.payload)?;
     // println!("Received event: {:?}", event);
      println!("Payload: {:?}", payload.task);
@@ -52,10 +56,13 @@ async fn function_handler(event: LambdaEvent<Value>) -> Result<&'static str, Err
             let current_time =  tz.from_utc_datetime(&chrono::Utc::now().naive_utc()).timestamp();
             let update_time = db.update_last_update(current_time).await?;
             println!("Update time into db! \n{}", update_time);
+
+            let elapsed = start_time.elapsed();
+            println!("Total execution time: {:?}", elapsed);
             return Ok(result);
         },
         "1h" => {
-            thirty_second().await;
+            let result = one_hour().await?;
 
         },
         _ => {
@@ -68,24 +75,33 @@ async fn function_handler(event: LambdaEvent<Value>) -> Result<&'static str, Err
 
 async fn thirty_second() -> Result<&'static str, Error>{
 
-    println!("1 done");
-
-    // Initialize the `App` with the database connection
+    println!("Start running");
     let realtime_task = Realtime_task::new().await.expect("Failed to initialize the app");
 
+    let admin_task = Admin_task::new().await.expect("Failed to initialize the admin app");
+
+    let result = tokio::join!(
+        realtime_task.run(),
+        admin_task.run()
+    );
     // Run the tasks
-    match realtime_task.run().await {
-        Ok(msg) => {
+    match result {
+        (Ok(realtime_task), Ok(admin_task)) => {
+            println!("Realtime Task: {}", realtime_task);
+            println!("Parallel Task: {}", admin_task);
 
-            return Ok("Task 30s completed")
-
+            Ok("Task 1 hour completed")
         },
-        Err(e) => {
-            eprintln!("Error running the app: {:?}", e);
-        }
-    }
-
-    Ok("Task 30s is failed!")
+        (Err(e), _) => {
+            eprintln!("Error running the realtime task: {:?}", e);
+            Err("Realtime task failed")
+        },
+        (_, Err(e)) => {
+            eprintln!("Error running the parallel task: {:?}", e);
+            Err("Parallel task failed")
+        },
+    }.expect("SOMETHING ERR");
+    Ok("HEHE")
 }
 
 async fn one_hour() -> Result<&'static str, Error>{
@@ -101,19 +117,15 @@ async fn one_hour() -> Result<&'static str, Error>{
             let db = DatabaseService::new().await?;
             let tz  = chrono_tz::Asia::Bangkok;
             let current_time =  tz.from_utc_datetime(&chrono::Utc::now().naive_utc()).timestamp();
-
             let update_time = db.update_last_update(current_time).await?;
             println!("Update time into db! \n{}", update_time);
             return Ok("Task 30s completed")
-
         },
         Err(e) => {
             eprintln!("Error running the app: {:?}", e);
-
         }
     }
     Ok("Task 1 hour failed")
-
 }
 
 async fn task1() -> Result<&'static str, Error> {

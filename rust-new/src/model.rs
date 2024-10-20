@@ -5,3 +5,5 @@ pub mod Label_Model;
 pub mod User;
 pub mod Course;
 pub mod Reminder;
+pub mod Settime;
+pub mod Completion;
