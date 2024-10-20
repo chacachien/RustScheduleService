@@ -1,3 +1,4 @@
 {
-  "task": "30s"
+  "task": "30s",
+  "be": "http://13.212.109.15:5001/api/v2/reminder"
 }

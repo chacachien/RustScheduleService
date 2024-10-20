@@ -1,3 +1,4 @@
+use std::env;
 use std::sync::Arc;
 use chrono::Duration;
 use lambda_runtime::Error;
@@ -12,7 +13,8 @@ pub struct Reminder {
 
 impl Reminder{
     pub async fn new() -> Result<Self, Error> {
-        let endpoint = "http://localhost:5001/api/v2/reminder".to_string();
+        let endpoint = env::var("BE").expect("BE must be set");
+
         Ok(Self { endpoint })
     }
 

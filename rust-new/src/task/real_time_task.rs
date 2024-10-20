@@ -60,7 +60,6 @@ impl Realtime_task {
         let course= self.db.get_coursename(user_course.course_id).await?;
 
         for quiz in quizzes {
-
             if(self.check_time(quiz.timecreated, last_update_time)){
                 let time_created_event = self.tz.timestamp_opt(quiz.timecreated,0).unwrap();
                 let reminder_content = create_reminder_request("quiz".to_string(), quiz.name.clone(), user_course.user_id, user_name.to_string(), user_course.course_id, course.fullname.to_string(), "was created".to_string(), time_created_event.to_string(), time_created_event.to_string());
@@ -135,7 +134,7 @@ impl Realtime_task {
 
     // Main function to run all tasks
     pub async fn run(&self) -> Result<&'static str, Error> {
-        println!("2 done");
+        println!("30s task start");
         let app = Arc::new(self.clone());
         let last_update_time = self.db.get_last_update().await?;
         // Fetch user courses from the database
@@ -191,51 +190,3 @@ impl Realtime_task {
         Ok("All tasks done")
     }
 }
-
-
-
-// async fn run() -> Result<&'static str, Error> {
-//
-//     println!("2 done");
-//     let db_url =env::var("DB_URL").unwrap().as_str();
-//     //let db = DatabaseService::new(db_url).await?;
-//     //let pool = PgPool::connect(d_url).await?;
-//     let db = Arc::new(DatabaseService::new(db_url).await?);
-//     let user_courses = db.get_user_course().await?;
-//     let mut tasks = vec![];
-//
-//     for user_course in user_courses {
-//         println!("UC: {user_course:?}");
-//         let db_clone = Arc::clone(&db);
-//         let user_course_clone = user_course.clone();
-//
-//         // Spawn each task concurrently
-//         let task = tokio::spawn(async move {
-//             //let quiz_result = check_quiz(user_course.clone()).await;
-//             let course_result = db_clone.get_assign(user_course_clone.clone()).await;
-//             let label_result = db_clone.get_label(user_course_clone.clone()).await;
-//             // let quiz_result = db_clone.get_quiz(user_course_clone.clone()).await;
-//             // let course_result = db_clone.get_assign(user_course_clone.clone()).await;
-//             // let label_result = db_clone.get_label(user_course_clone.clone()).await;
-//
-//             match (quiz_result, course_result, label_result) {
-//                 (Ok(quizzes), Ok(course), Ok(labels)) => {
-//                     println!("Assign: {:?}", course);
-//                     println!("Quizzes: {:?}", quizzes);
-//                     println!("Labels: {:?}", labels);
-//                 }
-//                 (Err(e), _, _) => eprintln!("Error fetching quizzes: {:?}", e),
-//                 (_, Err(e), _) => eprintln!("Error fetching assign: {:?}", e),
-//                 (_, _, Err(e)) => eprintln!("Error fetching labels: {:?}", e),
-//             }
-//         });
-//         tasks.push(task);
-//     }
-//
-//     // Await all tasks to complete
-//     for task in tasks {
-//         task.await?;
-//     }
-//
-//
-//     Ok("Task 2 completed")

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use sqlx::{Error, PgPool, Row};
 use crate::model::Assignment_Model::Assignment;
 use crate::model::Course::Course;
-use crate::model::Label_Model::Label;
+use crate::model::Label_Model::{Label, LabelDocument};
 use crate::model::Quiz_Model::Quiz;
 use crate::model::User::User;
 use crate::model::User_Course_Model::UserCourse;
@@ -101,5 +101,13 @@ impl DatabaseService {
         Ok(result)
     }
 
+    pub async fn get_all_label(&self) -> Result<Vec<LabelDocument>, Error>{
+        let rows = sqlx::query_as::<_, LabelDocument>(
+            r#"
+           SELECT * FROM mdl_label;
+            "#
+        ).fetch_all(&self.pool).await?;
+        Ok(rows)
+    }
 
 }
